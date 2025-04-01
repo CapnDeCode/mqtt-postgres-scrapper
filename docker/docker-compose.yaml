@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+# MQTT Broker
+  mqtt5:
+    image: eclipse-mosquitto
+    hostname: mqtt5
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # MQTT port
+      - "9001:9001" # MQTT WebSocket port
+    volumes:
+      - ./mqtt5/config:/mosquitto/config:rw
+      - ./mqtt5/data:/mosquitto/data:rw
+      - ./mqtt5/log:/mosquitto/log:rw
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dbname
+    volumes:
+      - "./postgres/data:/var/lib/postgresql/data"
+      - "./postgres/pg_hba.conf:/opt/postgres"
+      - "./postgres/50-hba.sh:/docker-entrypoint-initdb.d/50-hba.sh:ro"
+    ports:
+      - "5432:5432"
+
+  mqtt-scraper:
+    build:
+      context: ..  # Points to project root
+      dockerfile: docker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/dbname
+      MQTT_BROKER: mqtt5
+      MQTT_PORT: 1883
+      MQTT_USERNAME: sensor
+      MQTT_PASSWORD: sensor
+      TIMEZONE: Europe/Berlin
+    depends_on:
+      - db
+      - mqtt5
